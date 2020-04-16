@@ -1,0 +1,206 @@
+package csci310;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import citySearch.OpenWeatherConnector;
+import radiusSearch.OpenWeatherConnectorRadius;
+
+/**
+ * Servlet implementation class ActivityServlet
+ */
+@WebServlet("/ActivityServlet")
+public class AnalysisServlet extends HttpServlet {
+	private static final long serialVersionUID = 1L;
+	private static ArrayList<String> coldActivities = new ArrayList<String>(
+			Arrays.asList("Ice Skating", "Skiing", "Sledding", "Snowboarding", "Snowmobiling",
+					"Tobogganing", "Ice Fishing", "Ice Hockey", "Curling", "Snow Volleyball",
+					"Figure Skating", "Snow Shoeing", "Ski Biking", "Mountaineering", "Snow Tubing"));
+	private static ArrayList<String> outdoorActivities = new ArrayList<String>(
+			Arrays.asList("Hiking", "Camping", "Soccer", "Biking", "Rock Climbing",
+					"Archery", "Cycling", "Volleyball", "Basketball", "Frisbee",
+					"Golf", "Football", "Lacrosse", "Tennis", "Handball",
+					"Dodgeball", "Bungee Jumping", "Ziplining", "Fishing", "Picnic",
+					"Horseback Riding", "Go-Kart", "Cycling", "Running", "Jogging",
+					"Hunting", "Paragliding", "Ballooning", "Hang Gliding", "Parachuting"));
+	private static ArrayList<String> waterActivities = new ArrayList<String>(
+			Arrays.asList("Swimming", "Surfing", "Wind Surfing", "Kayaking", "Canoeing",
+					"Sailing", "Paddleboarding", "Water Skiing", "Jet Skiing", "Parasailing",
+					"Rafting", "Rowing", "Wakeboarding", "Snorkeling", "Diving",
+					"Water Polo", "Water Aerobics", "Water Rafting", "Aquajogging", "Kitesurfing"));
+	
+	//process AJAX requests from front end.
+	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException 
+	{
+		//figure out what information is being requested
+		String method = request.getParameter("method");
+		
+		//Get the tools neccessary to reply to the AJAX request.
+		PrintWriter pw = response.getWriter();
+		
+		String responseText;
+		//return the appropriate response
+		if(method.equals("initialize"))
+		{
+			responseText = SessionData.getTempUnit(request);
+		}
+		else if(method.equals("toggleTempUnit"))
+		{
+			responseText = "Toggled Temperature Unit Successfully.";
+			SessionData.toggleTempUnit(request);
+		}
+		else if(method.equals("search")) 
+		{
+			responseText = search(request);
+		}
+		else if(method.equals("addToFav")){
+			int userId = 1;
+			String name = request.getParameter("name");
+			String country= request.getParameter("country");
+			String lat = request.getParameter("lat");
+			String lng = request.getParameter("long");
+			CityObject c = new CityObject(name, country, lat, lng);
+			SessionData.addToFav(request, c);
+			responseText = "added to favorites successfuly";
+		}
+		else if(method.equals("remFromFav")){
+			String name = request.getParameter("name");
+			String lat = request.getParameter("lat");
+			String lng = request.getParameter("long");
+			SessionData.removeFromFav(request, name, lat, lng);
+			responseText = "removed from favorites successfully";
+		}
+		else if (method.equals("like")) {
+			int userId = 1;
+			String name = request.getParameter("name");
+			String country= request.getParameter("country");
+			String lat = request.getParameter("lat");
+			String lng = request.getParameter("long");
+			CityObject c = new CityObject(name, country, lat, lng);
+			SessionData.addToFav(request, c);
+			responseText = "city liked successfuly";	
+		}
+		else if (method.contentEquals("removeLike")) {
+			int userId = 1;
+			String name = request.getParameter("name");
+			String country= request.getParameter("country");
+			String lat = request.getParameter("lat");
+			String lng = request.getParameter("long");
+			CityObject c = new CityObject(name, country, lat, lng);
+			SessionData.addToFav(request, c);
+			responseText = "Like removed successfuly";
+		}
+		
+		else
+		{
+			responseText = "Bad Ajax Call; Servlet couldn't read the request properly.";
+		}
+		
+		//return the response.
+		pw.print(responseText);
+		pw.flush();
+	}
+	
+	
+	//This is called when a user clicks on the Search button on the vacation page.
+	public String search(HttpServletRequest request) {
+		
+		//get input
+		String activity = request.getParameter("activity");
+		String count = request.getParameter("count");//5
+		String location = request.getParameter("location");//90007
+		String min = "0", max = "0"; //80
+		
+		
+		Boolean isCity;
+		if(Utility.isAlpha(location)){
+			isCity = true;
+		}
+		else if(Utility.isNumeric(location)){
+			isCity = false;
+		}
+		else{
+			return "Error:Location";
+		}
+		
+		//make a call to CurrWeatherCall to get lat and long of current city
+		String apiResponse = "";
+		apiResponse = OpenWeatherConnector.currWeatherCall(location, isCity);
+		if (apiResponse == "") {
+			return "No Weather Data Found.";
+		}
+		
+		String[] tokens = apiResponse.split("_");
+		String lat = tokens[4];
+		String lon = tokens[5];
+		
+		// figure out temp range
+		if (isColdActivity(activity)) {
+			min = "-1000";
+			max = "40";
+		}
+		else if (isOutdoorActivity(activity)) {
+			min = "40.01";
+			max = "79.99";
+		}
+		else if (isWaterActivity(activity)) {
+			min = "80";
+			max = "1000";
+		}
+		else {
+			return "Error:Activity";
+		}
+		
+		//make a call to RadiusWeather call with this new information
+		String radiusResponse;
+		
+		try {
+			radiusResponse = OpenWeatherConnectorRadius.radiusWeatherCall(lat, lon, min, max, count, request);
+		} catch (Exception e) {
+			return "No Weather Data Found";
+		}
+		
+		if (radiusResponse.equals("None")) {
+			radiusResponse = "No Weather Data Found";
+		}
+		//return API response
+		return radiusResponse;
+	}
+	
+	private boolean isColdActivity(String input) {
+		for (int i = 0; i < coldActivities.size(); i++) {
+			String currActivity = coldActivities.get(i);
+			if (input.equalsIgnoreCase(currActivity)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	private boolean isOutdoorActivity(String input) {
+		for (int i = 0; i < outdoorActivities.size(); i++) {
+			String currActivity = outdoorActivities.get(i);
+			if (input.equalsIgnoreCase(currActivity)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	private boolean isWaterActivity(String input) {
+		for (int i = 0; i < waterActivities.size(); i++) {
+			String currActivity = waterActivities.get(i);
+			if (input.equalsIgnoreCase(currActivity)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+}
