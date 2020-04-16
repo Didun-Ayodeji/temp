@@ -1,0 +1,169 @@
+package csci310;
+
+import java.util.ArrayList;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import csci310.CityObject;
+
+public class SessionData {
+	
+	public SessionData() {
+		
+	}
+	
+	public static void toggleTempUnit(HttpServletRequest request) {
+		HttpSession session = request.getSession();
+		String tempUnit =(String) session.getAttribute("tempUnit");
+		System.out.println("toggling temp Unit. Currently :" + tempUnit);
+		if(tempUnit == "F") {
+			session.setAttribute("tempUnit", "C");
+		}
+		else {
+			session.setAttribute("tempUnit", "F");
+		}
+		System.out.println("temp unit is now" + session.getAttribute("tempUnit"));
+	}
+	public static String getTempUnit(HttpServletRequest request) {
+		HttpSession session = request.getSession();
+		String tempUnit = (String) session.getAttribute("tempUnit");
+		if(tempUnit == null) {
+			session.setAttribute("tempUnit", "F");
+			return "F";
+		}
+		return tempUnit;
+	}
+	
+
+	
+	// adding a new city
+	@SuppressWarnings("unchecked")
+	public static void addToFav(HttpServletRequest request, CityObject city) {
+		HttpSession session = request.getSession();
+		ArrayList<CityObject> cities;
+		if (session.getAttribute("cities") == null) {
+			cities = new ArrayList<CityObject>();
+		}
+		else {
+			cities = (ArrayList<CityObject>) session.getAttribute("cities");
+		}
+		cities.add(city);
+		//replace with is from JWT
+		int userId = 1;
+		city.addToDatabase(userId);
+		session.setAttribute("cities", cities);
+	}
+		
+	
+	//may return either a empty arrayList or null if no fav cities, 
+	@SuppressWarnings("unchecked")
+	public static ArrayList<CityObject> getFavoriteCities(HttpServletRequest request) {
+		HttpSession session = request.getSession();
+		return (ArrayList<CityObject>) session.getAttribute("cities");
+	}
+	
+	
+	@SuppressWarnings("unchecked")
+	public static void removeFromFav(HttpServletRequest request, String name, String lat, String lng) {
+		HttpSession session = request.getSession();
+		ArrayList<CityObject> favCities = (ArrayList<CityObject>) session.getAttribute("cities");
+		if(favCities == null) {
+			return;
+		}
+		for (int i = 0; i < favCities.size(); i++) {
+			if (name.equals(favCities.get(i).getName()) && lat.equals(favCities.get(i).getLat()) 
+					&& lng.equals(favCities.get(i).getLong())) {
+				
+				//remove it from the database
+				favCities.get(i).removeFromDatabase();
+				
+				//then remove it from the session
+				favCities.remove(i);
+				break;
+			}
+		}
+		if (favCities.size() == 0) {
+			favCities = null;
+		}
+		session.setAttribute("cities", favCities);
+		
+	}
+	
+	@SuppressWarnings("unchecked")
+	public static boolean isFavorite(HttpServletRequest request, String name, String lat, String lng) {
+		HttpSession session = request.getSession();
+		ArrayList<CityObject> cities = (ArrayList<CityObject>) session.getAttribute("cities");
+		if(cityListIsEmpty(request)) {
+			return false;
+		}
+		boolean foundName = false;
+		for (int i = 0; i < cities.size(); i++) {
+			if (name.equals(cities.get(i).getName()) && lat.equals(cities.get(i).getLat()) 
+					&& lng.equals(cities.get(i).getLong())) {
+				foundName = true;
+				break;
+			}
+		}
+		return foundName;
+	}
+	
+	@SuppressWarnings("unchecked")
+	public static boolean cityListIsEmpty(HttpServletRequest request) {
+		HttpSession session = request.getSession();
+		ArrayList<CityObject> cities = (ArrayList<CityObject>) session.getAttribute("cities");
+		if(cities == null) {
+			return true;
+		}
+		return false;
+	}
+	
+	//city likes functions!
+	
+	// adding a new city to likes
+	@SuppressWarnings("unchecked")
+	public static void addToLikes(HttpServletRequest request, CityObject city) {
+		HttpSession session = request.getSession();
+		ArrayList<CityObject> cities;
+		if (session.getAttribute("cities") == null) {
+			cities = new ArrayList<CityObject>();
+		}
+		else {
+			cities = (ArrayList<CityObject>) session.getAttribute("cities");
+		}
+		cities.add(city);
+		//replace with is from JWT
+		int userId = 1;
+		city.addToDatabase(userId);
+		session.setAttribute("cities", cities);
+	}
+	
+	@SuppressWarnings("unchecked")
+	public static void removeLike(HttpServletRequest request, String name, String lat, String lng) {
+		HttpSession session = request.getSession();
+		ArrayList<CityObject> likedCities = (ArrayList<CityObject>) session.getAttribute("cities");
+		if(likedCities == null) {
+			return;
+		}
+		for (int i = 0; i < likedCities.size(); i++) {
+			if (name.equals(likedCities.get(i).getName()) && lat.equals(likedCities.get(i).getLat()) 
+					&& lng.equals(likedCities.get(i).getLong())) {
+				
+				//remove it from the database
+				likedCities.get(i).removeFromDatabase();
+				
+				//then remove it from the session
+				likedCities.remove(i);
+				break;
+			}
+		}
+		if (likedCities.size() == 0) {
+			likedCities = null;
+		}
+		session.setAttribute("cities", likedCities);
+		
+	}
+	
+	
+}
