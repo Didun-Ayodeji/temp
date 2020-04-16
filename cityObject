@@ -1,0 +1,167 @@
+package csci310;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+
+import citySearch.OpenWeatherConnector;
+import driver.JDBCDriver;
+
+public class CityObject {
+	private String name;
+	private String country;
+	private String lat;
+	private String lng;
+	private ArrayList<String> photoLinks;
+	private int cityId;
+	private int userId;
+		
+	public CityObject(String name, String country, String lat, String lng) {
+		this.name = name;
+		this.country = country;
+		this.lat = lat;
+		this.lng = lng;
+		try {
+			this.photoLinks = GooglePlacesConnector.getPhotosCall(Double.parseDouble(lat), Double.parseDouble(lng));
+		} catch (Exception e) {
+			this.photoLinks = null;
+		}
+		
+		OpenWeatherConnector connector = new OpenWeatherConnector();
+		this.cityId = connector.cityIdCall(name);
+
+	}
+
+	public String getName() {
+		return name;
+	}
+	
+	public void setUserId(int userId) {
+		this.userId = userId;
+	}
+	
+	public String getCountry() {
+		return country;
+	}
+	
+	public String getLat() {
+		return lat;
+	}
+	
+	public String getLong() {
+		return lng;
+	}
+	
+	public int getCityId() {
+		return cityId;
+	}
+	
+	public ArrayList<String> getPhotoLinks() {
+		return photoLinks;
+	}
+	
+	public void addToDatabase(int userId) {
+		try {
+			this.setUserId(userId);
+			//check that this city does not exist as a favorite
+			ArrayList<HashMap> rs = JDBCDriver.query("SELECT cityId FROM groupg.favorites WHERE userId = " + this.userId 
+					+ " AND cityId = " + this.cityId +  ";");
+			
+			//if this user doesn't already have this saved as a favorite
+			if(rs.size() == 0) {
+				JDBCDriver.update("INSERT INTO groupg.favorites (userId, cityId) VALUES (" + userId +", " + cityId +  " );");
+			}else {
+				//user already has this city saved as a favorite
+				return;
+			}
+		}catch (SQLException sqle) {
+			
+		}
+	}
+	
+	//this function may end up being unneccesary
+	public void removeFromDatabase() {
+		try {
+			//check that this city does not exist as a favorite
+			ArrayList<HashMap> rs = JDBCDriver.query("SELECT cityId FROM groupg.favorites WHERE userId = " + this.userId 
+					+ " AND cityId = " + this.cityId +  ";");
+			
+			//if the favorite city exists in the DB, then delete it
+			if(rs.size() == 1) {
+				ArrayList<String> insertArgs = new ArrayList<String>();
+				
+				JDBCDriver.update("DELETE FROM groupg.favorites WHERE userId="+userId+" AND cityId ="+cityId+";");
+			}
+		}catch (SQLException sqle) {
+			
+		}
+	}
+	
+	//add like to a city from current user
+	public void addLikesToDatabase() {
+		
+		try {
+			this.setUserId(userId);
+			//check that this user hasn't already liked this city
+			ArrayList<HashMap> rs = JDBCDriver.query("SELECT cityId FROM groupg.likes WHERE userId = " + this.userId 
+					+ " AND cityId = " + this.cityId +  ";");
+			
+			//if this user hasn't already liked the city
+			if(rs.size() == 0) {
+				//increasing city's likes by 1
+				JDBCDriver.update("INSERT INTO groupg.favorites (userId, cityId) VALUES (" + userId +", " + cityId +  " );");
+				
+			}else {
+				//user already liked this city
+				return;
+			}
+		}catch (SQLException sqle) {
+			
+		}
+		
+		
+		return;
+	}
+	
+	public void removeLikesToDatabase() {
+
+		try {
+			this.setUserId(userId);
+			//check that this user has actually liked this city to begin with
+			ArrayList<HashMap> rs = JDBCDriver.query("SELECT cityId FROM groupg.likes WHERE userId = " + this.userId 
+					+ " AND cityId = " + this.cityId +  ";");
+			
+			//if this user has already liked the city
+			if(rs.size() != 0) {
+				JDBCDriver.update("DELETE FROM groupg.favorites WHERE userId="+userId+" AND cityId ="+cityId+";");
+				
+			}else {
+				//user didn't like the city to begin with so do nothing
+				return;
+			}
+		}catch (SQLException sqle) {
+			
+		}
+		
+		return;
+	}
+	
+	//get the number of likes for a city
+	public int getLikes() {
+	
+		int cityLikeCount = 0;
+		
+		try {
+			ArrayList<HashMap> rs = JDBCDriver.query("SELECT cityId FROM groupg.likes WHERE cityId = " + this.cityId + ";");
+			
+			return rs.size();
+//			
+			
+		} catch (SQLException e) {
+			
+		}
+		
+		return cityLikeCount;
+	}
+	
+}
